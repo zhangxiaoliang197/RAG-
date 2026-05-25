@@ -1,11 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, Settings } from 'lucide-react';
+import { MessageSquare, FileText, Settings, Database, Brain, BarChart3 } from 'lucide-react';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   const navItems = [
     { path: '/', label: '智能问答', icon: MessageSquare },
+    { path: '/analysis', label: '指标分析', icon: BarChart3 },
+    { path: '/tables', label: '数据表管理', icon: Database },
+    { path: '/knowledge', label: '知识库', icon: Brain },
     { path: '/documents', label: '文档管理', icon: FileText },
     { path: '/settings', label: '设置', icon: Settings },
   ];
@@ -16,9 +19,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <nav className="w-64 bg-white shadow-xl border-r border-slate-200 flex flex-col">
           <div className="p-6 border-b border-slate-200">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-              本地 RAG
+              指标分析系统
             </h1>
-            <p className="text-slate-500 text-sm mt-1">智能问答系统</p>
+            <p className="text-slate-500 text-sm mt-1">数据智能分析平台</p>
           </div>
 
           <div className="flex-1 p-4">

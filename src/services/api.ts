@@ -1,4 +1,8 @@
-import type { Document, AppConfig, QueryResponse } from '../../shared/types.js';
+import type { 
+  Document, AppConfig, QueryResponse, OracleConfig, TableMetadata, 
+  MetricKnowledge, SqlExample, AnalyzeRequest, AnalyzeResponse,
+  CreateTableMetadataRequest, CreateMetricKnowledgeRequest, CreateSqlExampleRequest
+} from '../../shared/types.js';
 
 const API_BASE = '/api';
 
@@ -62,6 +66,150 @@ export const api = {
       return request('/config', {
         method: 'POST',
         body: JSON.stringify(config),
+      });
+    },
+  },
+
+  oracle: {
+    async testConfig(config: OracleConfig): Promise<{ success: boolean; valid: boolean; error?: string }> {
+      return request('/oracle/config/test', {
+        method: 'POST',
+        body: JSON.stringify(config),
+      });
+    },
+
+    async saveConfig(config: OracleConfig): Promise<{ success: boolean }> {
+      return request('/oracle/config', {
+        method: 'POST',
+        body: JSON.stringify(config),
+      });
+    },
+
+    async getConfig(): Promise<{ success: boolean; config: OracleConfig | null }> {
+      return request('/oracle/config');
+    },
+
+    async getRemoteTables(schema?: string): Promise<{ success: boolean; tables: string[] }> {
+      const url = schema ? `/oracle/tables/remote?schema=${encodeURIComponent(schema)}` : '/oracle/tables/remote';
+      return request(url);
+    },
+
+    async getRemoteTableStructure(tableName: string, schema?: string): Promise<{ success: boolean; columns: any[] }> {
+      const url = schema 
+        ? `/oracle/tables/remote/${encodeURIComponent(tableName)}?schema=${encodeURIComponent(schema)}` 
+        : `/oracle/tables/remote/${encodeURIComponent(tableName)}`;
+      return request(url);
+    },
+
+    async getAllTables(): Promise<{ success: boolean; tables: TableMetadata[] }> {
+      return request('/oracle/tables');
+    },
+
+    async saveTable(data: CreateTableMetadataRequest): Promise<{ success: boolean; metadata: TableMetadata }> {
+      return request('/oracle/tables', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async updateTable(id: string, data: Partial<TableMetadata>): Promise<{ success: boolean; metadata: TableMetadata }> {
+      return request(`/oracle/tables/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async deleteTable(id: string): Promise<{ success: boolean }> {
+      return request(`/oracle/tables/${id}`, { method: 'DELETE' });
+    },
+
+    async executeSql(sql: string): Promise<{ success: boolean; columns: string[]; rows: any[]; executionTime?: number }> {
+      return request('/oracle/sql/execute', {
+        method: 'POST',
+        body: JSON.stringify({ sql }),
+      });
+    },
+
+    async validateSql(sql: string): Promise<{ success: boolean; valid: boolean; error?: string }> {
+      return request('/oracle/sql/validate', {
+        method: 'POST',
+        body: JSON.stringify({ sql }),
+      });
+    },
+  },
+
+  knowledge: {
+    async getAllMetrics(): Promise<{ success: boolean; metrics: MetricKnowledge[] }> {
+      return request('/knowledge/metrics');
+    },
+
+    async saveMetric(data: CreateMetricKnowledgeRequest): Promise<{ success: boolean; metric: MetricKnowledge }> {
+      return request('/knowledge/metrics', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async updateMetric(id: string, data: Partial<MetricKnowledge>): Promise<{ success: boolean; metric: MetricKnowledge }> {
+      return request(`/knowledge/metrics/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async deleteMetric(id: string): Promise<{ success: boolean }> {
+      return request(`/knowledge/metrics/${id}`, { method: 'DELETE' });
+    },
+
+    async getAllSqlExamples(): Promise<{ success: boolean; examples: SqlExample[] }> {
+      return request('/knowledge/sql-examples');
+    },
+
+    async saveSqlExample(data: CreateSqlExampleRequest): Promise<{ success: boolean; example: SqlExample }> {
+      return request('/knowledge/sql-examples', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async updateSqlExample(id: string, data: Partial<SqlExample>): Promise<{ success: boolean; example: SqlExample }> {
+      return request(`/knowledge/sql-examples/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async deleteSqlExample(id: string): Promise<{ success: boolean }> {
+      return request(`/knowledge/sql-examples/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  analysis: {
+    async analyze(data: AnalyzeRequest): Promise<{ success: boolean } & AnalyzeResponse> {
+      return request('/analysis', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async generateSql(data: AnalyzeRequest): Promise<{ success: boolean; sql: string; retrievedMetrics: MetricKnowledge[]; retrievedExamples: SqlExample[] }> {
+      return request('/analysis/generate-sql', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    async executeSql(sql: string): Promise<{ 
+      success: boolean; 
+      sqlValid: boolean; 
+      sqlError?: string;
+      result?: any[]; 
+      resultColumns?: string[]; 
+      executionTime?: number 
+    }> {
+      return request('/analysis/execute-sql', {
+        method: 'POST',
+        body: JSON.stringify({ sql }),
       });
     },
   },

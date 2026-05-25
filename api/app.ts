@@ -14,6 +14,9 @@ import { fileURLToPath } from 'url'
 import documentRoutes from './routes/documents.js'
 import queryRoutes from './routes/query.js'
 import configRoutes from './routes/config.js'
+import oracleRoutes from './routes/oracle.js'
+import knowledgeRoutes from './routes/knowledge.js'
+import analysisRoutes from './routes/analysis.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -34,6 +37,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use('/api/documents', documentRoutes)
 app.use('/api/query', queryRoutes)
 app.use('/api/config', configRoutes)
+app.use('/api/oracle', oracleRoutes)
+app.use('/api/knowledge', knowledgeRoutes)
+app.use('/api/analysis', analysisRoutes)
 
 /**
  * health

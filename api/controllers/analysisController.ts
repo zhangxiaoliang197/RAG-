@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { generateSql, generateExplanation } from '../services/text2sqlService.js';
-import { executeSql, validateSql, loadOracleConfig } from '../services/oracleService.js';
+import { executeSql, validateSql, getActiveDatabaseConfig } from '../services/databaseService.js';
 import { ConfigService } from '../services/configService.js';
 import type { AnalyzeRequest, ExecuteSqlRequest } from '../../shared/types.js';
 
@@ -11,7 +11,7 @@ export class AnalysisController {
 
       const [appConfig, oracleConfig] = await Promise.all([
         ConfigService.getConfig(),
-        loadOracleConfig()
+        getActiveDatabaseConfig()
       ]);
 
       const llmConfig = {
@@ -42,7 +42,7 @@ export class AnalysisController {
           explanation = await generateExplanation(question, sql, result, llmConfig);
         }
       } else {
-        explanation = '请先配置 Oracle 数据库连接';
+        explanation = '请先配置数据库连接';
       }
 
       res.json({

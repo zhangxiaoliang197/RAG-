@@ -45,6 +45,8 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export type DatabaseType = 'oracle' | 'dameng';
+
 export interface OracleConfig {
   user: string;
   password: string;
@@ -52,6 +54,23 @@ export interface OracleConfig {
   port: number;
   sid: string;
 }
+
+export interface OracleDatabaseConfig extends OracleConfig {
+  type: 'oracle';
+}
+
+export interface DamengDatabaseConfig {
+  type: 'dameng';
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  schema?: string;
+  jdbcUrl?: string;
+  driverJarPath?: string;
+}
+
+export type DatabaseConfig = OracleDatabaseConfig | DamengDatabaseConfig;
 
 export interface ColumnMetadata {
   columnName: string;
@@ -172,3 +191,5 @@ export interface SaveOracleConfigRequest {
   port: number;
   sid: string;
 }
+
+export type SaveDatabaseConfigRequest = DatabaseConfig;

@@ -131,6 +131,50 @@ RAG-Offline/
 
 ## 部署到离线环境
 
+### CentOS 7.9（推荐：Docker 离线镜像方式）
+
+CentOS 7.9 上直接安装 Node.js >= 18 可能遇到兼容性问题（系统 glibc 版本较旧），推荐使用 Docker 方式部署：在联网环境构建镜像 → 导出为 tar → 离线服务器导入并运行。
+
+#### 1) 联网环境：构建并导出镜像
+
+在一台能联网、并且已安装 Docker 的机器上（Linux/Windows/macOS 均可）：
+
+```bash
+cd RAG-
+
+chmod +x docker-build-offline.sh
+./docker-build-offline.sh
+```
+
+生成文件：`rag-offline-image.tar`（可通过 U 盘/内网传到离线服务器）。
+
+#### 2) 离线服务器：导入并运行
+
+在 CentOS 7.9 离线服务器上：
+
+```bash
+# 1. 导入镜像
+docker load -i rag-offline-image.tar
+
+# 2. 准备持久化数据目录（用于保存 config / 文档 / 向量库 / 驱动等）
+mkdir -p /opt/rag/data
+
+# 3. 运行
+docker rm -f rag-offline >/dev/null 2>&1 || true
+docker run -d \
+  --name rag-offline \
+  -p 5173:5173 \
+  -p 3001:3001 \
+  -v /opt/rag/data:/app/data \
+  rag-offline:latest
+```
+
+访问：`http://<服务器IP>:5173`
+
+#### 3) 达梦 JDBC 驱动（离线上传）
+
+在系统页面「数据表管理」→「数据库配置」选择“达梦 V8”，上传驱动 jar 后保存即可。驱动会落在 `/opt/rag/data/db-drivers/`，容器重启不丢失。
+
 ### 步骤 1: 检查环境要求
 
 确认离线环境满足以下要求：

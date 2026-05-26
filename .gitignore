@@ -26,3 +26,8 @@ dist-ssr
 
 # Data files
 data
+
+# Env
+.env
+.env.*
+!.env.example

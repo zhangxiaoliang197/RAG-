@@ -1,5 +1,5 @@
 import oracledb from 'oracledb';
-import { OracleConfig, ColumnMetadata, TableMetadata } from '../../shared/types';
+import { OracleConfig, ColumnMetadata } from '../../shared/types';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -100,11 +100,11 @@ export async function getTableStructure(tableName: string, schema?: string): Pro
       FROM user_tab_columns c
       LEFT JOIN user_col_comments cc ON c.table_name = cc.table_name AND c.column_name = cc.column_name
       LEFT JOIN (
-        SELECT cols.column_name
+        SELECT cols.table_name, cols.column_name
         FROM user_constraints cons
         JOIN user_cons_columns cols ON cons.constraint_name = cols.constraint_name
         WHERE cons.constraint_type = 'P'
-      ) pk ON c.column_name = pk.column_name
+      ) pk ON c.table_name = pk.table_name AND c.column_name = pk.column_name
       WHERE c.table_name = :table_name
       ORDER BY c.column_id
     `;
@@ -124,11 +124,11 @@ export async function getTableStructure(tableName: string, schema?: string): Pro
         FROM all_tab_columns c
         LEFT JOIN all_col_comments cc ON c.owner = cc.owner AND c.table_name = cc.table_name AND c.column_name = cc.column_name
         LEFT JOIN (
-          SELECT cols.column_name
+          SELECT cols.owner, cols.table_name, cols.column_name
           FROM all_constraints cons
           JOIN all_cons_columns cols ON cons.owner = cols.owner AND cons.constraint_name = cols.constraint_name
           WHERE cons.constraint_type = 'P'
-        ) pk ON c.column_name = pk.column_name
+        ) pk ON c.owner = pk.owner AND c.table_name = pk.table_name AND c.column_name = pk.column_name
         WHERE c.table_name = :table_name AND c.owner = :owner
         ORDER BY c.column_id
       `;
@@ -203,41 +203,4 @@ export async function loadOracleConfig(): Promise<OracleConfig | null> {
     return JSON.parse(content);
   }
   return null;
-}
-
-const TABLE_METADATA_PATH = path.join(DATA_DIR, 'table-metadata.json');
-
-export async function saveTableMetadata(metadata: TableMetadata): Promise<void> {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  let allMetadata: TableMetadata[] = [];
-  if (fs.existsSync(TABLE_METADATA_PATH)) {
-    allMetadata = JSON.parse(fs.readFileSync(TABLE_METADATA_PATH, 'utf-8'));
-  }
-
-  const existingIndex = allMetadata.findIndex(t => t.id === metadata.id || (t.tableName === metadata.tableName && t.schema === metadata.schema));
-  if (existingIndex >= 0) {
-    allMetadata[existingIndex] = metadata;
-  } else {
-    allMetadata.push(metadata);
-  }
-
-  fs.writeFileSync(TABLE_METADATA_PATH, JSON.stringify(allMetadata, null, 2));
-}
-
-export async function loadAllTableMetadata(): Promise<TableMetadata[]> {
-  if (fs.existsSync(TABLE_METADATA_PATH)) {
-    return JSON.parse(fs.readFileSync(TABLE_METADATA_PATH, 'utf-8'));
-  }
-  return [];
-}
-
-export async function deleteTableMetadata(id: string): Promise<void> {
-  if (fs.existsSync(TABLE_METADATA_PATH)) {
-    const allMetadata = JSON.parse(fs.readFileSync(TABLE_METADATA_PATH, 'utf-8'));
-    const filtered = allMetadata.filter((t: TableMetadata) => t.id !== id);
-    fs.writeFileSync(TABLE_METADATA_PATH, JSON.stringify(filtered, null, 2));
-  }
 }

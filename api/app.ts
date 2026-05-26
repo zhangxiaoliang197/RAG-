@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url'
 import documentRoutes from './routes/documents.js'
 import queryRoutes from './routes/query.js'
 import configRoutes from './routes/config.js'
-import oracleRoutes from './routes/oracle.js'
+import databaseRoutes from './routes/database.js'
 import knowledgeRoutes from './routes/knowledge.js'
 import analysisRoutes from './routes/analysis.js'
 
@@ -37,7 +37,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use('/api/documents', documentRoutes)
 app.use('/api/query', queryRoutes)
 app.use('/api/config', configRoutes)
-app.use('/api/oracle', oracleRoutes)
+app.use('/api/db', databaseRoutes)
+app.use('/api/oracle', databaseRoutes)
 app.use('/api/knowledge', knowledgeRoutes)
 app.use('/api/analysis', analysisRoutes)
 

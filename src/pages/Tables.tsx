@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, RefreshCw, Database, Eye } from 'lucide-react';
 import { api } from '../services/api';
-import type { OracleConfig, TableMetadata, CreateTableMetadataRequest, ColumnMetadata, TableRelationship } from '../../shared/types';
+import type { DatabaseConfig, TableMetadata, CreateTableMetadataRequest, ColumnMetadata, TableRelationship } from '../../shared/types';
 
 export function Tables() {
   const [tables, setTables] = useState<TableMetadata[]>([]);
-  const [oracleConfig, setOracleConfig] = useState<OracleConfig | null>(null);
+  const [dbConfig, setDbConfig] = useState<DatabaseConfig | null>(null);
   const [remoteTables, setRemoteTables] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
-  const [configForm, setConfigForm] = useState<OracleConfig>({
+  const [configForm, setConfigForm] = useState<DatabaseConfig>({
+    type: 'oracle',
     user: '',
     password: '',
     host: '',
     port: 1521,
     sid: '',
   });
+  const [driverUploading, setDriverUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState<TableMetadata | null>(null);
   const [tableForm, setTableForm] = useState<CreateTableMetadataRequest>({
@@ -37,11 +39,11 @@ export function Tables() {
     try {
       setLoading(true);
       const [tablesRes, configRes] = await Promise.all([
-        api.oracle.getAllTables(),
-        api.oracle.getConfig(),
+        api.db.getAllTables(),
+        api.db.getConfig(),
       ]);
       if (tablesRes.success) setTables(tablesRes.tables);
-      if (configRes.success) setOracleConfig(configRes.config);
+      if (configRes.success) setDbConfig(configRes.config);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -51,7 +53,7 @@ export function Tables() {
 
   async function testConfig() {
     try {
-      const result = await api.oracle.testConfig(configForm);
+      const result = await api.db.testConfig(configForm);
       alert(result.success && result.valid ? '连接成功！' : `连接失败: ${result.error}`);
     } catch (error) {
       alert('测试连接失败');
@@ -60,7 +62,7 @@ export function Tables() {
 
   async function saveConfig() {
     try {
-      await api.oracle.saveConfig(configForm);
+      await api.db.saveConfig(configForm);
       setShowConfig(false);
       alert('配置保存成功！');
       await loadData();
@@ -69,13 +71,31 @@ export function Tables() {
     }
   }
 
+  async function uploadDriver(file: File) {
+    try {
+      setDriverUploading(true);
+      const result = await api.db.uploadDriver(file);
+      if (!result.success || !result.driverJarPath) {
+        alert(result.error || '上传驱动失败');
+        return;
+      }
+      if (configForm.type !== 'dameng') return;
+      setConfigForm({ ...configForm, driverJarPath: result.driverJarPath });
+      alert('驱动上传成功');
+    } catch (error) {
+      alert('上传驱动失败');
+    } finally {
+      setDriverUploading(false);
+    }
+  }
+
   async function loadRemoteTables() {
-    if (!oracleConfig) {
+    if (!dbConfig) {
       setShowConfig(true);
       return;
     }
     try {
-      const result = await api.oracle.getRemoteTables(schemaInput || undefined);
+      const result = await api.db.getRemoteTables(schemaInput || undefined);
       if (result.success) setRemoteTables(result.tables);
     } catch (error) {
       alert('加载远程表失败');
@@ -83,9 +103,9 @@ export function Tables() {
   }
 
   async function loadTableStructure(tableName: string) {
-    if (!oracleConfig) return;
+    if (!dbConfig) return;
     try {
-      const result = await api.oracle.getRemoteTableStructure(tableName, schemaInput || undefined);
+      const result = await api.db.getRemoteTableStructure(tableName, schemaInput || undefined);
       if (result.success) {
         const columns: ColumnMetadata[] = result.columns.map(col => ({
           columnName: col.columnName,
@@ -113,9 +133,9 @@ export function Tables() {
   async function saveTable() {
     try {
       if (editingTable) {
-        await api.oracle.updateTable(editingTable.id, tableForm);
+        await api.db.updateTable(editingTable.id, tableForm);
       } else {
-        await api.oracle.saveTable(tableForm);
+        await api.db.saveTable(tableForm);
       }
       setShowModal(false);
       setEditingTable(null);
@@ -129,7 +149,7 @@ export function Tables() {
   async function deleteTable(id: string) {
     if (!confirm('确定要删除这个表吗？')) return;
     try {
-      await api.oracle.deleteTable(id);
+      await api.db.deleteTable(id);
       await loadData();
     } catch (error) {
       alert('删除表失败');
@@ -215,6 +235,32 @@ export function Tables() {
     });
   }
 
+  function changeDbType(type: 'oracle' | 'dameng') {
+    if (type === 'oracle') {
+      setConfigForm({
+        type: 'oracle',
+        user: '',
+        password: '',
+        host: '',
+        port: 1521,
+        sid: '',
+      });
+      return;
+    }
+
+    const driverJarPath = configForm.type === 'dameng' ? configForm.driverJarPath : undefined;
+    setConfigForm({
+      type: 'dameng',
+      user: '',
+      password: '',
+      host: '',
+      port: 5236,
+      schema: '',
+      jdbcUrl: '',
+      driverJarPath,
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -225,14 +271,14 @@ export function Tables() {
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
           >
             <Eye size={16} />
-            Oracle 配置
+            数据库配置
           </button>
           <button
             onClick={loadRemoteTables}
             className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
           >
             <RefreshCw size={16} />
-            从 Oracle 加载表
+            从数据库加载表
           </button>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
@@ -322,8 +368,19 @@ export function Tables() {
       {showConfig && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">Oracle 连接配置</h2>
+            <h2 className="text-xl font-bold mb-4">数据库连接配置</h2>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">数据库类型</label>
+                <select
+                  value={configForm.type}
+                  onChange={(e) => changeDbType(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  <option value="oracle">Oracle</option>
+                  <option value="dameng">达梦 V8</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">用户名</label>
                 <input
@@ -360,15 +417,56 @@ export function Tables() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">SID</label>
-                <input
-                  type="text"
-                  value={configForm.sid}
-                  onChange={(e) => setConfigForm({ ...configForm, sid: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                />
-              </div>
+              {configForm.type === 'oracle' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">SID</label>
+                  <input
+                    type="text"
+                    value={configForm.sid}
+                    onChange={(e) => setConfigForm({ ...configForm, sid: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              )}
+              {configForm.type === 'dameng' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Schema（可选）</label>
+                    <input
+                      type="text"
+                      value={configForm.schema || ''}
+                      onChange={(e) => setConfigForm({ ...configForm, schema: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">JDBC URL（可选）</label>
+                    <input
+                      type="text"
+                      value={configForm.jdbcUrl || ''}
+                      onChange={(e) => setConfigForm({ ...configForm, jdbcUrl: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                      placeholder="jdbc:dm://127.0.0.1:5236"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">达梦 JDBC 驱动（.jar）</label>
+                    <input
+                      type="file"
+                      accept=".jar"
+                      disabled={driverUploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadDriver(f);
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                    <div className="text-xs text-slate-500 mt-1">
+                      {configForm.driverJarPath ? '已设置驱动' : '未设置驱动'}
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={testConfig}

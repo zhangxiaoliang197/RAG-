@@ -2,7 +2,7 @@
  * local server entry file, for local development
  */
 import app from './app.js';
-import { loadOracleConfig, initOraclePool, closeOraclePool } from './services/oracleService.js';
+import { getActiveDatabaseConfig, closeActiveDatabase } from './services/databaseService.js';
 
 /**
  * start server with port
@@ -13,13 +13,9 @@ let server: any;
 
 async function startServer() {
   try {
-    const oracleConfig = await loadOracleConfig();
-    if (oracleConfig) {
-      await initOraclePool(oracleConfig);
-      console.log('Oracle connection pool initialized');
-    }
+    await getActiveDatabaseConfig();
   } catch (error) {
-    console.log('No Oracle config found or init failed:', error);
+    console.log('No database config found or init failed:', error);
   }
 
   server = app.listen(PORT, () => {
@@ -35,7 +31,7 @@ startServer();
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received');
   try {
-    await closeOraclePool();
+    await closeActiveDatabase();
     if (server) {
       server.close(() => {
         console.log('Server closed');
@@ -51,7 +47,7 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received');
   try {
-    await closeOraclePool();
+    await closeActiveDatabase();
     if (server) {
       server.close(() => {
         console.log('Server closed');

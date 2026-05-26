@@ -5,7 +5,7 @@ import {
   AnalyzeResponse 
 } from '../../shared/types';
 import axios from 'axios';
-import { loadAllTableMetadata } from './oracleService.js';
+import { loadAllTableMetadata } from './tableMetadataService.js';
 import { loadAllMetricKnowledge, loadAllSqlExamples } from './knowledgeService.js';
 
 interface LLMConfig {
@@ -64,7 +64,7 @@ function buildPrompt(
   metrics: MetricKnowledge[], 
   examples: SqlExample[]
 ): string {
-  return `你是一位专业的数据分析专家，擅长根据用户的问题生成 Oracle 数据库的 SQL 查询。
+  return `你是一位专业的数据分析专家，擅长根据用户的问题生成 Oracle 兼容语法的 SQL 查询（适用于 Oracle/达梦 等）。
 
 ## 可用的数据表结构:
 ${formatTableStructures(tables)}
@@ -79,7 +79,7 @@ ${formatSqlExamples(examples)}
 ${question}
 
 请按以下要求生成 SQL:
-1. 使用标准的 Oracle SQL 语法
+1. 使用 Oracle 兼容的 SQL 语法
 2. 仅返回 SQL 语句，不要包含任何解释或注释
 3. 确保表和字段名称与上面列出的完全一致
 4. 合理处理日期类型，使用 TRUNC, TO_CHAR, ADD_MONTHS 等函数

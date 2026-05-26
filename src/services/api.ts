@@ -1,5 +1,5 @@
 import type { 
-  Document, AppConfig, QueryResponse, OracleConfig, TableMetadata, 
+  Document, AppConfig, QueryResponse, DatabaseConfig, TableMetadata, 
   MetricKnowledge, SqlExample, AnalyzeRequest, AnalyzeResponse,
   CreateTableMetadataRequest, CreateMetricKnowledgeRequest, CreateSqlExampleRequest
 } from '../../shared/types.js';
@@ -70,73 +70,87 @@ export const api = {
     },
   },
 
-  oracle: {
-    async testConfig(config: OracleConfig): Promise<{ success: boolean; valid: boolean; error?: string }> {
-      return request('/oracle/config/test', {
+  db: {
+    async uploadDriver(file: File): Promise<{ success: boolean; driverJarPath?: string; fileName?: string; error?: string }> {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE}/db/driver/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      return response.json();
+    },
+
+    async testConfig(config: DatabaseConfig): Promise<{ success: boolean; valid: boolean; error?: string }> {
+      return request('/db/config/test', {
         method: 'POST',
         body: JSON.stringify(config),
       });
     },
 
-    async saveConfig(config: OracleConfig): Promise<{ success: boolean }> {
-      return request('/oracle/config', {
+    async saveConfig(config: DatabaseConfig): Promise<{ success: boolean }> {
+      return request('/db/config', {
         method: 'POST',
         body: JSON.stringify(config),
       });
     },
 
-    async getConfig(): Promise<{ success: boolean; config: OracleConfig | null }> {
-      return request('/oracle/config');
+    async getConfig(): Promise<{ success: boolean; config: DatabaseConfig | null }> {
+      return request('/db/config');
     },
 
     async getRemoteTables(schema?: string): Promise<{ success: boolean; tables: string[] }> {
-      const url = schema ? `/oracle/tables/remote?schema=${encodeURIComponent(schema)}` : '/oracle/tables/remote';
+      const url = schema ? `/db/tables/remote?schema=${encodeURIComponent(schema)}` : '/db/tables/remote';
       return request(url);
     },
 
     async getRemoteTableStructure(tableName: string, schema?: string): Promise<{ success: boolean; columns: any[] }> {
       const url = schema 
-        ? `/oracle/tables/remote/${encodeURIComponent(tableName)}?schema=${encodeURIComponent(schema)}` 
-        : `/oracle/tables/remote/${encodeURIComponent(tableName)}`;
+        ? `/db/tables/remote/${encodeURIComponent(tableName)}?schema=${encodeURIComponent(schema)}` 
+        : `/db/tables/remote/${encodeURIComponent(tableName)}`;
       return request(url);
     },
 
     async getAllTables(): Promise<{ success: boolean; tables: TableMetadata[] }> {
-      return request('/oracle/tables');
+      return request('/db/tables');
     },
 
     async saveTable(data: CreateTableMetadataRequest): Promise<{ success: boolean; metadata: TableMetadata }> {
-      return request('/oracle/tables', {
+      return request('/db/tables', {
         method: 'POST',
         body: JSON.stringify(data),
       });
     },
 
     async updateTable(id: string, data: Partial<TableMetadata>): Promise<{ success: boolean; metadata: TableMetadata }> {
-      return request(`/oracle/tables/${id}`, {
+      return request(`/db/tables/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       });
     },
 
     async deleteTable(id: string): Promise<{ success: boolean }> {
-      return request(`/oracle/tables/${id}`, { method: 'DELETE' });
+      return request(`/db/tables/${id}`, { method: 'DELETE' });
     },
 
     async executeSql(sql: string): Promise<{ success: boolean; columns: string[]; rows: any[]; executionTime?: number }> {
-      return request('/oracle/sql/execute', {
+      return request('/db/sql/execute', {
         method: 'POST',
         body: JSON.stringify({ sql }),
       });
     },
 
     async validateSql(sql: string): Promise<{ success: boolean; valid: boolean; error?: string }> {
-      return request('/oracle/sql/validate', {
+      return request('/db/sql/validate', {
         method: 'POST',
         body: JSON.stringify({ sql }),
       });
     },
   },
+
+  oracle: undefined as any,
 
   knowledge: {
     async getAllMetrics(): Promise<{ success: boolean; metrics: MetricKnowledge[] }> {
@@ -214,3 +228,5 @@ export const api = {
     },
   },
 };
+
+api.oracle = api.db;

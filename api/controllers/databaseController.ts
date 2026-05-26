@@ -1,65 +1,106 @@
 import { Request, Response } from 'express';
-import {
-  initOraclePool,
-  testConnection,
-  getTables,
-  getTableStructure,
-  executeSql,
-  validateSql,
-  saveOracleConfig,
-  loadOracleConfig
-} from '../services/oracleService.js';
-import { saveTableMetadata, loadAllTableMetadata, deleteTableMetadata } from '../services/tableMetadataService.js';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import type { OracleConfig, CreateTableMetadataRequest, TableMetadata } from '../../shared/types.js';
+import type {
+  CreateTableMetadataRequest,
+  DatabaseConfig,
+  TableMetadata
+} from '../../shared/types.js';
+import {
+  executeSql,
+  getActiveDatabaseConfig,
+  getRemoteTableStructure,
+  getRemoteTables,
+  setActiveDatabaseConfig,
+  testDatabaseConnection,
+  validateSql
+} from '../services/databaseService.js';
+import { deleteTableMetadata, loadAllTableMetadata, saveTableMetadata } from '../services/tableMetadataService.js';
 
-export class OracleController {
-  static async testOracleConfig(req: Request, res: Response): Promise<void> {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, '../../data');
+const DRIVER_DIR = path.join(DATA_DIR, 'db-drivers');
+
+function sanitizeConfig(config: DatabaseConfig | null): any {
+  if (!config) return null;
+  if (config.type === 'oracle') {
+    return { ...config, password: '***' };
+  }
+  const driverJarName = config.driverJarPath ? path.basename(config.driverJarPath) : undefined;
+  return { ...config, password: '***', driverJarPath: driverJarName };
+}
+
+export class DatabaseController {
+  static async testConfig(req: Request, res: Response): Promise<void> {
     try {
-      const config = req.body as OracleConfig;
-      const result = await testConnection(config);
-      res.json({ success: true, ...result });
+      const config = req.body as DatabaseConfig;
+      const result = await testDatabaseConnection(config);
+      res.json({ success: true, valid: result.success, error: result.error });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  static async saveOracleConfig(req: Request, res: Response): Promise<void> {
+  static async saveConfig(req: Request, res: Response): Promise<void> {
     try {
-      const config = req.body as OracleConfig;
-      await saveOracleConfig(config);
-      await initOraclePool(config);
+      const config = req.body as DatabaseConfig;
+      await setActiveDatabaseConfig(config);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  static async getOracleConfig(req: Request, res: Response): Promise<void> {
+  static async getConfig(req: Request, res: Response): Promise<void> {
     try {
-      const config = await loadOracleConfig();
-      const safeConfig = config ? { ...config, password: '***' } : null;
-      res.json({ success: true, config: safeConfig });
+      const config = await getActiveDatabaseConfig();
+      res.json({ success: true, config: sanitizeConfig(config) });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  static async getOracleTables(req: Request, res: Response): Promise<void> {
+  static async uploadDriver(req: Request, res: Response): Promise<void> {
+    try {
+      const file = (req as any).file as Express.Multer.File | undefined;
+      if (!file) {
+        res.status(400).json({ success: false, error: 'Missing file' });
+        return;
+      }
+
+      if (!fs.existsSync(DRIVER_DIR)) {
+        fs.mkdirSync(DRIVER_DIR, { recursive: true });
+      }
+
+      const id = uuidv4();
+      const ext = path.extname(file.originalname) || '.jar';
+      const targetPath = path.join(DRIVER_DIR, `${id}${ext}`);
+      fs.writeFileSync(targetPath, file.buffer);
+
+      res.json({ success: true, driverJarPath: targetPath, fileName: file.originalname });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getRemoteTables(req: Request, res: Response): Promise<void> {
     try {
       const schema = req.query.schema as string | undefined;
-      const tables = await getTables(schema);
+      const tables = await getRemoteTables(schema);
       res.json({ success: true, tables });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  static async getOracleTableStructure(req: Request, res: Response): Promise<void> {
+  static async getRemoteTableStructure(req: Request, res: Response): Promise<void> {
     try {
       const { tableName } = req.params;
       const schema = req.query.schema as string | undefined;
-      const columns = await getTableStructure(tableName, schema);
+      const columns = await getRemoteTableStructure(tableName, schema);
       res.json({ success: true, columns });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -147,3 +188,4 @@ export class OracleController {
     }
   }
 }
+
